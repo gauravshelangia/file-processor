@@ -2,17 +2,17 @@ package com.company.processor;
 
 import com.company.DBConnector;
 import com.company.ExecutorFactory;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.regex.Pattern;
 
 public class CSVFileProcessor implements FileProcessor {
-    private static final Integer BATCH_SIZE = 4;
+    private static final Integer BATCH_SIZE = 10;
     public static Integer ERROR_COUNT = 1;
     Connection con;
     ExecutorService executor;
@@ -26,28 +26,24 @@ public class CSVFileProcessor implements FileProcessor {
 
     @Override
     public void saveFileToDB(String filePath) {
-        BufferedReader br = null;
-        FileInputStream inputStream = null;
-        Scanner sc = null;
-        String line = "";
         String cvsSplitBy = ",";
         long currentMills = System.currentTimeMillis();
         System.out.println("Start at = " + new Date());
         try {
-
-            inputStream = new FileInputStream(filePath);
-            sc = new Scanner(inputStream, "UTF-8");
-            sc.useDelimiter(Pattern.compile("\"\\n"));
-            FileReader reader = new FileReader(filePath);
-            br = new BufferedReader(reader);
-            List<String> lines = new ArrayList<>();
+            List<String[]> lines = new ArrayList<>();
             int count=0;
             int tcount = 0;
-            while (sc.hasNext()) {
-                lines.add(sc.nextLine());
+
+            CSVParser csvParser = new CSVParser(new FileReader(filePath),
+                    CSVFormat.DEFAULT.withFirstRecordAsHeader());
+            Iterator<CSVRecord> it = csvParser.iterator();
+
+            while(it.hasNext()) {
+                CSVRecord csvRecord = it.next();
+                lines.add(new String[]{csvRecord.get(0),csvRecord.get(1),csvRecord.get(2)});
                 count++;
                 if(count == BATCH_SIZE){
-                    executor.submit(new CSVWriter(new ArrayList(lines), cvsSplitBy, con));
+                    executor.submit(new CSVWriter(lines, cvsSplitBy, con));
                     count = 0;
                     lines = new ArrayList<>();
                 }
@@ -63,15 +59,10 @@ public class CSVFileProcessor implements FileProcessor {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            try {
-                br.close();
-                executor.shutdown();
-                System.out.println("Executor shut down successfully");
-                System.out.println(System.currentTimeMillis()-currentMills + "ms spent");
-                System.out.println(ERROR_COUNT);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            executor.shutdown();
+            System.out.println("Executor shut down successfully");
+            System.out.println(System.currentTimeMillis()-currentMills + "ms spent");
+            System.out.println(ERROR_COUNT);
         }
     }
 

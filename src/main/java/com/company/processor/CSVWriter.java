@@ -14,11 +14,11 @@ public class CSVWriter implements Runnable {
     private static final String SQL_STATEMENT = "insert into `product` (name, sku, description)" +
             " values (?,?,?)";
 
-    List<String> lines;
+    List<String[]> lines;
     String splitBy;
     Connection connection;
 
-    public CSVWriter(final List<String> lines, String splitBy, Connection connection) {
+    public CSVWriter(final List<String[]> lines, String splitBy, Connection connection) {
         this.lines = lines;
         this.splitBy = splitBy;
         this.connection = connection;
@@ -29,9 +29,7 @@ public class CSVWriter implements Runnable {
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(SQL_STATEMENT);
             Set<String> skuSet = new HashSet<>();
-            for (String line : lines) {
-//                System.out.println("Size = " + lines.size());
-                String[] data = line.split(splitBy);
+            for (String[] data : lines) {
                 if(skuSet.add(data[1])) {
                 preparedStatement.setString(1, data[0]);
                 preparedStatement.setString(2, data[1]);
@@ -41,10 +39,10 @@ public class CSVWriter implements Runnable {
             }
 
             int[] rows = preparedStatement.executeBatch();
-            System.out.println("Batch size = "+preparedStatement.getLargeUpdateCount());
+//            System.out.println("Batch size = "+preparedStatement.getLargeUpdateCount());
         } catch (SQLException throwables) {
             ERROR_COUNT++;
-//            throwables.printStackTrace();
+            throwables.printStackTrace();
         }
     }
 }
