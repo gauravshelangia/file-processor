@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class CSVFileProcessor implements FileProcessor {
-    private static final Integer BATCH_SIZE = 10;
+    private static final Integer BATCH_SIZE = 50000;
     public static Integer ERROR_COUNT = 1;
     Connection con;
     ExecutorService executor;
@@ -21,7 +21,7 @@ public class CSVFileProcessor implements FileProcessor {
         // Use one executor in one processor
         con = DBConnector.getConnection();
         // Number of threads should be configurable -- read from env
-        executor = ExecutorFactory.getExecutorService(1);
+        executor = ExecutorFactory.getExecutorService(5);
     }
 
     @Override
@@ -31,28 +31,31 @@ public class CSVFileProcessor implements FileProcessor {
         System.out.println("Start at = " + new Date());
         try {
             List<String[]> lines = new ArrayList<>();
-            int count=0;
-            int tcount = 0;
+            int count = 0;
+//            int tcount = 0;
 
             CSVParser csvParser = new CSVParser(new FileReader(filePath),
                     CSVFormat.DEFAULT.withFirstRecordAsHeader());
             Iterator<CSVRecord> it = csvParser.iterator();
-
-            while(it.hasNext()) {
+            Set<String> skuSet = new HashSet<>();
+            while (it.hasNext()) {
                 CSVRecord csvRecord = it.next();
-                lines.add(new String[]{csvRecord.get(0),csvRecord.get(1),csvRecord.get(2)});
+//                if (skuSet.add(csvRecord.get(1))) {
+                lines.add(new String[]{csvRecord.get(0), csvRecord.get(1), csvRecord.get(2)});
                 count++;
-                if(count == BATCH_SIZE){
+                if (count == BATCH_SIZE) {
                     executor.submit(new CSVWriter(lines, cvsSplitBy, con));
                     count = 0;
                     lines = new ArrayList<>();
+//                    System.out.println("Batch Complete");
                 }
-                if(tcount%10000==0){
-                    System.out.println("T Count = " + tcount + " At = " + new Date());
-                }
-                tcount++;
+//                if (tcount % 10000 == 0) {
+//                    System.out.println("T Count = " + tcount + " At = " + new Date());
+//                }
+//                tcount++;
+//                }
             }
-            if (count>0){
+            if (count > 0) {
                 executor.submit(new CSVWriter(lines, cvsSplitBy, con));
             }
 
@@ -60,8 +63,11 @@ public class CSVFileProcessor implements FileProcessor {
             e.printStackTrace();
         } finally {
             executor.shutdown();
+            while (!executor.isShutdown()){
+                //waiting for shutdown
+            }
             System.out.println("Executor shut down successfully");
-            System.out.println(System.currentTimeMillis()-currentMills + "ms spent");
+            System.out.println(System.currentTimeMillis() - currentMills + "ms spent");
             System.out.println(ERROR_COUNT);
         }
     }
